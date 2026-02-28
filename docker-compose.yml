@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # ============================================================
   # Bitcoin Core + Electrs Indexer (regtest)
@@ -136,7 +134,7 @@ services:
     container_name: merry-dogecoin
     ports:
       - "18332:18332"   # Regtest RPC
-      - "18444:18445"   # Regtest P2P (remapped to avoid conflict with bitcoin)
+      - "18445:18444"   # Regtest P2P (host remapped to avoid conflict with bitcoin)
     volumes:
       - dogecoin-data:/data/dogecoin
     restart: unless-stopped

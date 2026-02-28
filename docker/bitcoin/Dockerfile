@@ -31,7 +31,6 @@ RUN ./configure \
     --disable-gui-tests \
     --without-gui \
     --with-zmq \
-    --disable-wallet \
     --with-sqlite=yes \
     --prefix=/opt/bitcoin
 
