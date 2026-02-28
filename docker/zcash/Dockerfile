@@ -15,11 +15,13 @@ RUN apt-get update && apt-get install -y \
     g++-multilib \
     git \
     libc6-dev \
+    libtinfo5 \
     libtool \
     m4 \
     ncurses-dev \
     pkg-config \
     python3 \
+    python3-zmq \
     unzip \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -45,10 +47,7 @@ RUN apt-get update && apt-get install -y \
 # Copy zcashd binaries
 COPY --from=zcash-builder /zcash-src/src/zcashd /usr/local/bin/
 COPY --from=zcash-builder /zcash-src/src/zcash-cli /usr/local/bin/
-
-# Copy fetch-params script and run it to download Zcash parameters
-COPY --from=zcash-builder /zcash-src/zcutil/fetch-params.sh /usr/local/bin/fetch-params.sh
-RUN chmod +x /usr/local/bin/fetch-params.sh && /usr/local/bin/fetch-params.sh
+COPY --from=zcash-builder /zcash-src/src/zcash-tx /usr/local/bin/
 
 # Create data and config directories
 RUN mkdir -p /data/zcash /etc/zcash
