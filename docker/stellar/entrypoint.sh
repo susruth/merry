@@ -8,14 +8,27 @@ echo "=== Stellar-core standalone localnet entrypoint ==="
 # -------------------------------------------------------
 echo "Starting PostgreSQL..."
 
-# Ensure the PostgreSQL data directory is owned by the postgres user
-if [ ! -f /var/lib/postgresql/14/main/PG_VERSION ]; then
+PGDATA="/var/lib/postgresql/14/main"
+PGBIN="/usr/lib/postgresql/14/bin"
+PGLOG="/var/log/postgresql/postgresql.log"
+
+# Initialize the data directory if it does not exist
+if [ ! -f "$PGDATA/PG_VERSION" ]; then
     echo "Initializing PostgreSQL data directory..."
-    su - postgres -c "/usr/lib/postgresql/14/bin/initdb -D /var/lib/postgresql/14/main"
+    mkdir -p "$PGDATA"
+    chown -R postgres:postgres "$PGDATA"
+    su -s /bin/bash postgres -c "$PGBIN/initdb -D $PGDATA"
 fi
 
-# Start PostgreSQL service
-su - postgres -c "/usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql.log start -w"
+# Allow local connections with password authentication
+cat > "$PGDATA/pg_hba.conf" <<EOF
+local   all   all                 trust
+host    all   all   127.0.0.1/32  trust
+host    all   all   ::1/128       trust
+EOF
+
+# Start PostgreSQL and wait for it to be ready
+su -s /bin/bash postgres -c "$PGBIN/pg_ctl -D $PGDATA -l $PGLOG start -w"
 
 echo "PostgreSQL started."
 
@@ -24,9 +37,8 @@ echo "PostgreSQL started."
 # -------------------------------------------------------
 echo "Creating stellar database and user..."
 
-# Create user and database if they don't exist
-su - postgres -c "psql -tc \"SELECT 1 FROM pg_roles WHERE rolname='stellar'\" | grep -q 1 || psql -c \"CREATE USER stellar WITH PASSWORD 'stellar' CREATEDB;\""
-su - postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname='stellar'\" | grep -q 1 || psql -c \"CREATE DATABASE stellar OWNER stellar;\""
+su -s /bin/bash postgres -c "psql -tc \"SELECT 1 FROM pg_roles WHERE rolname='stellar'\" | grep -q 1 || psql -c \"CREATE USER stellar WITH PASSWORD 'stellar' CREATEDB;\""
+su -s /bin/bash postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname='stellar'\" | grep -q 1 || psql -c \"CREATE DATABASE stellar OWNER stellar;\""
 
 echo "Database ready."
 
@@ -39,7 +51,14 @@ stellar-core new-db --conf /etc/stellar/stellar-core.cfg
 echo "stellar-core database initialized."
 
 # -------------------------------------------------------
-# 4. Start stellar-core in standalone in-memory mode
+# 4. Force SCP so the standalone node starts consensus
+#    immediately without waiting for peers
 # -------------------------------------------------------
-echo "Starting stellar-core run --in-memory ..."
-exec stellar-core run --in-memory --conf /etc/stellar/stellar-core.cfg
+echo "Setting force-scp flag..."
+stellar-core force-scp --conf /etc/stellar/stellar-core.cfg
+
+# -------------------------------------------------------
+# 5. Start stellar-core
+# -------------------------------------------------------
+echo "Starting stellar-core run ..."
+exec stellar-core run --conf /etc/stellar/stellar-core.cfg
