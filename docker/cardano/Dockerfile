@@ -180,6 +180,6 @@ EXPOSE 3001
 EXPOSE 12788
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
-    CMD cardano-cli ping --count 1 --host 127.0.0.1 --port 3001 --magic ${NETWORK_MAGIC} 2>/dev/null || exit 1
+    CMD test -S /data/cardano/socket/node.socket && cardano-cli ping -c 1 -h 127.0.0.1 -p 3001 -m ${NETWORK_MAGIC} 2>/dev/null || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
