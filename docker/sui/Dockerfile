@@ -7,28 +7,21 @@
 # ==============================================================================
 # Stage 1: Build
 # ==============================================================================
-FROM ubuntu:22.04 AS builder
-
-# Avoid interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
+FROM alpine:3.20 AS builder
 
 # Install all system dependencies required to compile Sui
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    pkg-config \
-    clang \
-    llvm \
+RUN apk add --no-cache \
+    build-base \
+    clang-dev \
     cmake \
-    make \
     curl \
     git \
-    libssl-dev \
-    libclang-dev \
     libpq-dev \
-    zlib1g-dev \
-    libprotobuf-dev \
-    protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
+    llvm \
+    openssl-dev \
+    pkgconf \
+    protobuf-dev \
+    zlib-dev
 
 # Install Rust via rustup. The repo's rust-toolchain.toml will override
 # the default toolchain version if needed.
@@ -56,19 +49,16 @@ RUN ls -lh target/release/sui && target/release/sui --version
 # ==============================================================================
 # Stage 2: Runtime
 # ==============================================================================
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM alpine:3.20
 
 # Install only the runtime libraries needed to execute sui
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     ca-certificates \
     curl \
+    libgcc \
+    libpq \
     libssl3 \
-    libpq5 \
-    zlib1g \
-    libgcc-s1 \
-    && rm -rf /var/lib/apt/lists/*
+    zlib
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /build/sui/target/release/sui /usr/local/bin/sui

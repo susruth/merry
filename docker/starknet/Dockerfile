@@ -1,17 +1,14 @@
 # ==============================================================================
 # Stage 1: Build starknet-devnet from source
 # ==============================================================================
-FROM rust:1.85-slim-bookworm AS builder
+FROM rust:1.85-alpine3.20 AS builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    build-essential \
+RUN apk add --no-cache \
+    build-base \
     git \
-    libssl-dev \
-    pkg-config \
-    protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
+    openssl-dev \
+    pkgconf \
+    protobuf-dev
 
 RUN git clone --branch v0.7.2 --depth 1 \
     https://github.com/0xSpaceShard/starknet-devnet-rs.git /starknet-devnet-rs
@@ -23,14 +20,12 @@ RUN cargo build --bin starknet-devnet --release
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM ubuntu:22.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     ca-certificates \
-    tini \
-    && rm -rf /var/lib/apt/lists/*
+    libgcc \
+    tini
 
 COPY --from=builder /starknet-devnet-rs/target/release/starknet-devnet /usr/local/bin/starknet-devnet
 

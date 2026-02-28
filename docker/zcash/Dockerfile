@@ -1,30 +1,25 @@
 # ==============================================================================
 # Stage 1: Build zcashd v6.1.0 from source
 # ==============================================================================
-FROM ubuntu:20.04 AS zcash-builder
+FROM alpine:3.20 AS zcash-builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     autoconf \
     automake \
-    bsdmainutils \
-    build-essential \
+    build-base \
     cmake \
+    coreutils \
     curl \
-    g++-multilib \
     git \
-    libc6-dev \
-    libtinfo5 \
     libtool \
+    linux-headers \
     m4 \
     ncurses-dev \
-    pkg-config \
+    pkgconf \
     python3 \
-    python3-zmq \
+    py3-zmq \
     unzip \
-    zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
+    zlib-dev
 
 RUN git clone --branch v6.1.0 --depth 1 https://github.com/zcash/zcash.git /zcash-src
 
@@ -35,14 +30,13 @@ RUN ./zcutil/build.sh -j$(nproc)
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM ubuntu:20.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     curl \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+    libgcc \
+    libgomp \
+    libstdc++
 
 # Copy zcashd binaries
 COPY --from=zcash-builder /zcash-src/src/zcashd /usr/local/bin/

@@ -1,25 +1,22 @@
 # ==============================================================================
 # Stage 1: Build Litecoin Core v0.21.4 from source
 # ==============================================================================
-FROM ubuntu:22.04 AS litecoin-builder
+FROM alpine:3.20 AS litecoin-builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
+    autoconf \
     automake \
-    autotools-dev \
-    bsdmainutils \
-    build-essential \
+    boost-dev \
+    build-base \
+    coreutils \
+    db-dev \
     git \
-    libboost-all-dev \
-    libdb5.3++-dev \
     libevent-dev \
-    libssl-dev \
     libtool \
-    libzmq3-dev \
-    pkg-config \
+    openssl-dev \
+    pkgconf \
     python3 \
-    && rm -rf /var/lib/apt/lists/*
+    zeromq-dev
 
 RUN git clone --branch v0.21.4 --depth 1 https://github.com/litecoin-project/litecoin.git /litecoin-src
 
@@ -41,19 +38,16 @@ RUN make install
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM ubuntu:22.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    libboost-filesystem1.74.0 \
-    libboost-thread1.74.0 \
-    libdb5.3++ \
-    libevent-2.1-7 \
-    libevent-pthreads-2.1-7 \
+RUN apk add --no-cache \
+    boost-filesystem \
+    boost-thread \
+    db \
+    libevent \
     libssl3 \
-    libzmq5 \
-    && rm -rf /var/lib/apt/lists/*
+    libstdc++ \
+    zeromq
 
 # Copy Litecoin Core binaries
 COPY --from=litecoin-builder /opt/litecoin/bin/litecoind /usr/local/bin/

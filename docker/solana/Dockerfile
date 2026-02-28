@@ -7,38 +7,21 @@
 # ==============================================================================
 # Stage 1: Build
 # ==============================================================================
-FROM ubuntu:22.04 AS builder
-
-# Avoid interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
+FROM rust:1.81-alpine3.20 AS builder
 
 # Install all system dependencies required to compile Solana/Agave
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    pkg-config \
-    clang \
-    llvm \
+RUN apk add --no-cache \
+    build-base \
+    clang-dev \
     cmake \
-    make \
     curl \
+    eudev-dev \
     git \
-    libssl-dev \
-    libudev-dev \
-    zlib1g-dev \
-    libprotobuf-dev \
-    protobuf-compiler \
-    libclang-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Rust via rustup. Agave v2.1.7 requires Rust 1.81.0 per its
-# rust-toolchain.toml. We install that exact version and set it as default.
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --default-toolchain 1.81.0 \
-    && rustc --version
+    llvm \
+    openssl-dev \
+    pkgconf \
+    protobuf-dev \
+    zlib-dev
 
 # Clone the Agave repository at the exact release tag
 WORKDIR /build
@@ -62,19 +45,17 @@ RUN ls -lh target/release/solana-test-validator \
 # ==============================================================================
 # Stage 2: Runtime
 # ==============================================================================
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM alpine:3.20
 
 # Install only the runtime libraries needed to execute the validator
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
+    bzip2 \
     ca-certificates \
     curl \
+    eudev-libs \
+    libgcc \
     libssl3 \
-    libudev1 \
-    zlib1g \
-    bzip2 \
-    && rm -rf /var/lib/apt/lists/*
+    zlib
 
 # Copy the compiled binaries from the builder stage
 COPY --from=builder /build/agave/target/release/solana-test-validator /usr/local/bin/
@@ -87,7 +68,7 @@ RUN chmod +x /usr/local/bin/solana-test-validator \
     /usr/local/bin/solana-faucet
 
 # Create a non-root user to run the validator
-RUN useradd -m -s /bin/bash solana
+RUN adduser -D -s /bin/sh solana
 USER solana
 WORKDIR /home/solana
 

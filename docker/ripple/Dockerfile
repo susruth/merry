@@ -1,21 +1,20 @@
 # ==============================================================================
 # Stage 1: Build rippled from source
 # ==============================================================================
-FROM ubuntu:22.04 AS builder
+FROM alpine:3.20 AS builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     cmake \
     g++ \
     gcc \
     git \
-    libssl-dev \
-    pkg-config \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+    linux-headers \
+    openssl-dev \
+    pkgconf \
+    python3 \
+    py3-pip
 
-RUN pip3 install 'conan<2'
+RUN pip3 install --break-system-packages 'conan<2'
 
 # Set up Conan profile for building
 RUN conan profile new default --detect \
@@ -47,13 +46,12 @@ RUN cmake --build . --parallel $(nproc)
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM ubuntu:22.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
+    libgcc \
     libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+    libstdc++
 
 # Copy the built rippled binary
 COPY --from=builder /rippled-src/.build/rippled /usr/local/bin/rippled

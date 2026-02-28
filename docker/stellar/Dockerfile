@@ -1,33 +1,28 @@
 # ==============================================================================
 # Stage 1: Build stellar-core from source
 # ==============================================================================
-FROM ubuntu:22.04 AS builder
+FROM alpine:3.20 AS builder
 
 ARG STELLAR_CORE_VERSION=v22.0.0
 
-ENV DEBIAN_FRONTEND=noninteractive
-
 # Install build dependencies
-# clang (clang-14) and libc++ are from stock Ubuntu 22.04
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     autoconf \
     automake \
     bison \
-    build-essential \
+    build-base \
     clang \
+    clang-dev \
     curl \
     flex \
     git \
     libc++-dev \
-    libc++abi-dev \
     libpq-dev \
     libtool \
     libunwind-dev \
     parallel \
-    pkg-config \
-    sed \
     perl \
-    && rm -rf /var/lib/apt/lists/*
+    pkgconf
 
 # Clone stellar-core at the specified release tag
 RUN git clone --branch ${STELLAR_CORE_VERSION} --single-branch \
@@ -57,18 +52,15 @@ RUN ./autogen.sh \
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM alpine:3.20
 
 # Install only the runtime libraries needed by stellar-core, plus PostgreSQL
-RUN apt-get update && apt-get install -y \
-    libc++1 \
-    libc++abi1 \
-    libpq5 \
-    libunwind8 \
-    postgresql-14 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    bash \
+    libc++ \
+    libpq \
+    libunwind \
+    postgresql
 
 # Copy stellar-core binary from the builder stage
 COPY --from=builder /opt/stellar-core/usr/local/bin/stellar-core /usr/local/bin/stellar-core

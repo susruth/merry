@@ -1,23 +1,20 @@
 # ==============================================================================
 # Stage 1: Build Bitcoin Core v28.1 from source
 # ==============================================================================
-FROM ubuntu:22.04 AS bitcoin-builder
+FROM alpine:3.20 AS bitcoin-builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     autoconf \
     automake \
-    build-essential \
+    boost-dev \
+    build-base \
     git \
-    libtool \
-    pkg-config \
-    python3 \
-    libsqlite3-dev \
-    libzmq3-dev \
     libevent-dev \
-    libboost-dev \
-    && rm -rf /var/lib/apt/lists/*
+    libtool \
+    pkgconf \
+    python3 \
+    sqlite-dev \
+    zeromq-dev
 
 RUN git clone --branch v28.1 --depth 1 https://github.com/bitcoin/bitcoin.git /bitcoin-src
 
@@ -40,18 +37,9 @@ RUN make install
 # ==============================================================================
 # Stage 2: Build Electrs from source
 # ==============================================================================
-FROM ubuntu:22.04 AS electrs-builder
+FROM rust:1.82-alpine3.20 AS electrs-builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cargo \
-    clang \
-    cmake \
-    git \
-    rustc \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache build-base clang-dev cmake git
 
 RUN git clone --depth 1 https://github.com/romanz/electrs.git /electrs-src
 
@@ -62,15 +50,14 @@ RUN cargo build --locked --release
 # ==============================================================================
 # Stage 3: Runtime image
 # ==============================================================================
-FROM ubuntu:22.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    libevent-2.1-7 \
-    libsqlite3-0 \
-    libzmq5 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    libevent \
+    libgcc \
+    libstdc++ \
+    sqlite-libs \
+    zeromq
 
 # Copy Bitcoin Core binaries
 COPY --from=bitcoin-builder /opt/bitcoin/bin/bitcoind /usr/local/bin/

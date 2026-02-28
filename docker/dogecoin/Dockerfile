@@ -1,24 +1,21 @@
 # ==============================================================================
 # Stage 1: Build Dogecoin Core v1.14.9 from source
 # ==============================================================================
-FROM ubuntu:22.04 AS dogecoin-builder
+FROM alpine:3.20 AS dogecoin-builder
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
+    autoconf \
     automake \
-    autotools-dev \
-    bsdmainutils \
-    build-essential \
+    boost-dev \
+    build-base \
+    coreutils \
+    db-dev \
     git \
-    libboost-all-dev \
-    libdb5.3++-dev \
     libevent-dev \
-    libssl-dev \
     libtool \
-    libzmq3-dev \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+    openssl-dev \
+    pkgconf \
+    zeromq-dev
 
 RUN git clone --branch v1.14.9 --depth 1 https://github.com/dogecoin/dogecoin.git /dogecoin-src
 
@@ -31,6 +28,7 @@ RUN ./configure \
     --disable-tests \
     --disable-bench \
     --with-zmq \
+    --with-incompatible-bdb \
     --prefix=/opt/dogecoin
 
 RUN make -j$(nproc)
@@ -39,22 +37,19 @@ RUN make install
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM ubuntu:22.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    libboost-chrono1.74.0 \
-    libboost-filesystem1.74.0 \
-    libboost-program-options1.74.0 \
-    libboost-system1.74.0 \
-    libboost-thread1.74.0 \
-    libdb5.3++ \
-    libevent-2.1-7 \
-    libevent-pthreads-2.1-7 \
+RUN apk add --no-cache \
+    boost-chrono \
+    boost-filesystem \
+    boost-program_options \
+    boost-system \
+    boost-thread \
+    db \
+    libevent \
     libssl3 \
-    libzmq5 \
-    && rm -rf /var/lib/apt/lists/*
+    libstdc++ \
+    zeromq
 
 # Copy Dogecoin Core binaries
 COPY --from=dogecoin-builder /opt/dogecoin/bin/dogecoind /usr/local/bin/

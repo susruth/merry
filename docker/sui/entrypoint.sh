@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 SUI_CONFIG_DIR="${SUI_CONFIG_DIR:-/root/.sui/sui_config}"
