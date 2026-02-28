@@ -1,0 +1,203 @@
+version: "3.8"
+
+services:
+  # ============================================================
+  # Bitcoin Core + Electrs Indexer (regtest)
+  # ============================================================
+  bitcoin:
+    build:
+      context: ./docker/bitcoin
+      dockerfile: Dockerfile
+    container_name: merry-bitcoin
+    ports:
+      - "18443:18443"   # Regtest RPC
+      - "18444:18444"   # Regtest P2P
+      - "60401:60401"   # Electrs (Electrum protocol)
+      - "28332:28332"   # ZMQ raw block
+      - "28333:28333"   # ZMQ raw tx
+    volumes:
+      - bitcoin-data:/root/.bitcoin
+    restart: unless-stopped
+
+  # ============================================================
+  # Ethereum / EVM (Geth dev mode)
+  # ============================================================
+  evm:
+    build:
+      context: ./docker/evm
+      dockerfile: Dockerfile
+    container_name: merry-evm
+    ports:
+      - "8545:8545"     # HTTP RPC
+      - "8546:8546"     # WebSocket
+      - "30303:30303"   # P2P
+    volumes:
+      - evm-data:/root/.ethereum
+    restart: unless-stopped
+
+  # ============================================================
+  # Solana (test-validator)
+  # ============================================================
+  solana:
+    build:
+      context: ./docker/solana
+      dockerfile: Dockerfile
+    container_name: merry-solana
+    ports:
+      - "8899:8899"     # JSON-RPC
+      - "8900:8900"     # WebSocket (PubSub)
+      - "9900:9900"     # Faucet
+    volumes:
+      - solana-data:/home/solana/test-ledger
+    restart: unless-stopped
+
+  # ============================================================
+  # Sui (local network)
+  # ============================================================
+  sui:
+    build:
+      context: ./docker/sui
+      dockerfile: Dockerfile
+    container_name: merry-sui
+    ports:
+      - "9000:9000"     # JSON-RPC
+      - "9123:9123"     # Faucet
+      - "5003:5003"     # Fullnode
+    environment:
+      - FORCE_REGENESIS=true
+    volumes:
+      - sui-data:/root/.sui
+    restart: unless-stopped
+
+  # ============================================================
+  # Starknet (devnet)
+  # ============================================================
+  starknet:
+    build:
+      context: ./docker/starknet
+      dockerfile: Dockerfile
+    container_name: merry-starknet
+    ports:
+      - "5050:5050"     # JSON-RPC
+    restart: unless-stopped
+
+  # ============================================================
+  # Cardano (node)
+  # ============================================================
+  cardano:
+    build:
+      context: ./docker/cardano
+      dockerfile: Dockerfile
+    container_name: merry-cardano
+    ports:
+      - "3001:3001"     # Node
+      - "12788:12788"   # EKG monitoring
+    volumes:
+      - cardano-data:/data/cardano
+    restart: unless-stopped
+
+  # ============================================================
+  # Ripple / XRPL (standalone)
+  # ============================================================
+  ripple:
+    build:
+      context: ./docker/ripple
+      dockerfile: Dockerfile
+    container_name: merry-ripple
+    ports:
+      - "5005:5005"     # JSON-RPC
+      - "6006:6006"     # WebSocket
+    volumes:
+      - ripple-data:/var/lib/rippled
+    restart: unless-stopped
+
+  # ============================================================
+  # Stellar (standalone)
+  # ============================================================
+  stellar:
+    build:
+      context: ./docker/stellar
+      dockerfile: Dockerfile
+    container_name: merry-stellar
+    ports:
+      - "11625:11625"   # Peer
+      - "11626:11626"   # HTTP/Admin
+    volumes:
+      - stellar-data:/data/stellar
+    restart: unless-stopped
+
+  # ============================================================
+  # Dogecoin (regtest)
+  # ============================================================
+  dogecoin:
+    build:
+      context: ./docker/dogecoin
+      dockerfile: Dockerfile
+    container_name: merry-dogecoin
+    ports:
+      - "18332:18332"   # Regtest RPC
+      - "18444:18445"   # Regtest P2P (remapped to avoid conflict with bitcoin)
+    volumes:
+      - dogecoin-data:/data/dogecoin
+    restart: unless-stopped
+
+  # ============================================================
+  # Litecoin (regtest)
+  # ============================================================
+  litecoin:
+    build:
+      context: ./docker/litecoin
+      dockerfile: Dockerfile
+    container_name: merry-litecoin
+    ports:
+      - "19332:19332"   # Regtest RPC
+      - "19444:19444"   # Regtest P2P
+    volumes:
+      - litecoin-data:/data/litecoin
+    restart: unless-stopped
+
+  # ============================================================
+  # ZCash (regtest)
+  # ============================================================
+  zcash:
+    build:
+      context: ./docker/zcash
+      dockerfile: Dockerfile
+    container_name: merry-zcash
+    ports:
+      - "18232:18232"   # Regtest RPC
+      - "18233:18233"   # Regtest P2P
+    volumes:
+      - zcash-data:/root/.zcash
+    restart: unless-stopped
+
+  # ============================================================
+  # Lightning Network (LND, depends on Bitcoin)
+  # ============================================================
+  lightning:
+    build:
+      context: ./docker/lightning
+      dockerfile: Dockerfile
+    container_name: merry-lightning
+    ports:
+      - "9735:9735"     # P2P
+      - "10009:10009"   # gRPC
+      - "8080:8080"     # REST
+    volumes:
+      - lightning-data:/root/.lnd
+    depends_on:
+      - bitcoin
+    restart: unless-stopped
+
+volumes:
+  bitcoin-data:
+  evm-data:
+  solana-data:
+  sui-data:
+  cardano-data:
+  ripple-data:
+  stellar-data:
+  dogecoin-data:
+  litecoin-data:
+  zcash-data:
+  lightning-data:
