@@ -72,17 +72,16 @@ test_bitcoin() {
     check_container "bitcoin" || return
 
     check "bitcoind RPC - getblockchaininfo" \
-        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getblockchaininfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:18443/" \
+        "docker exec merry-bitcoin bitcoin-cli -regtest -datadir=/data/bitcoin getblockchaininfo" \
         "regtest"
 
     check "bitcoind RPC - getnetworkinfo" \
-        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getnetworkinfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:18443/" \
+        "docker exec merry-bitcoin bitcoin-cli -regtest -datadir=/data/bitcoin getnetworkinfo" \
         "version"
 
     check "bitcoind RPC - generate a block" \
-        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"createwallet\",\"params\":[\"test\"]}' -H 'Content-Type: text/plain' http://localhost:18443/ && \
-         curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getnewaddress\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:18443/" \
-        "result"
+        "docker exec merry-bitcoin bitcoin-cli -regtest -datadir=/data/bitcoin -rpcwallet=default getnewaddress" \
+        "bcrt1"
 
     check "Electrs - server.version" \
         "echo '{\"jsonrpc\":\"2.0\",\"method\":\"server.version\",\"params\":[\"test\",\"1.4\"],\"id\":1}' | timeout 5 nc -q 1 localhost 60401" \
@@ -196,9 +195,9 @@ test_starknet() {
         "curl -sf -X POST -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"method\":\"starknet_syncing\",\"params\":[],\"id\":1}' http://localhost:5050/" \
         "result"
 
-    check "Starknet - predeployed accounts" \
-        "curl -sf http://localhost:5050/predeployed_accounts" \
-        "address"
+    check "Starknet - is_alive" \
+        "curl -sf http://localhost:5050/is_alive" \
+        "Alive"
 }
 
 # ==============================================================================
@@ -307,16 +306,28 @@ test_litecoin() {
     check_container "litecoin" || return
 
     check "Litecoin RPC - getblockchaininfo" \
-        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getblockchaininfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19332/" \
+        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getblockchaininfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19443/" \
         "regtest"
 
     check "Litecoin RPC - getnetworkinfo" \
-        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getnetworkinfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19332/" \
+        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getnetworkinfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19443/" \
         "version"
 
     check "Litecoin RPC - getmininginfo" \
-        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getmininginfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19332/" \
+        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getmininginfo\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19443/" \
         "result"
+
+    check "Litecoin RPC - block count >= 101" \
+        "curl -sf --user user:password --data-binary '{\"jsonrpc\":\"1.0\",\"method\":\"getblockcount\",\"params\":[]}' -H 'Content-Type: text/plain' http://localhost:19443/" \
+        "result"
+
+    check "Electrs HTTP - blocks tip height" \
+        "curl -sf http://localhost:3010/blocks/tip/height" \
+        ""
+
+    check "Electrs HTTP - block at height 1" \
+        "curl -sf http://localhost:3010/block-height/1" \
+        ""
 }
 
 # ==============================================================================
@@ -350,15 +361,20 @@ test_lightning() {
 
     check_container "lightning" || return
 
-    # LND REST API requires the TLS cert from inside the container
-    check "LND REST - getinfo" \
-        "docker compose exec lightning lncli --network regtest --no-macaroons getinfo 2>/dev/null || \
-         curl -sf --insecure https://localhost:8080/v1/getinfo 2>/dev/null" \
-        ""
+    check "LND lncli - getinfo" \
+        "docker compose exec lightning lncli --network regtest getinfo" \
+        "identity_pubkey"
 
-    check "LND gRPC - wallet state" \
-        "docker compose exec lightning lncli --network regtest --no-macaroons state 2>/dev/null || echo 'lncli available'" \
-        ""
+    check "LND lncli - getnetworkinfo" \
+        "docker compose exec lightning lncli --network regtest getnetworkinfo" \
+        "num_nodes"
+
+    local macaroon
+    macaroon=$(docker compose exec lightning sh -c 'cat /root/.lnd/data/chain/bitcoin/regtest/admin.macaroon | od -An -tx1 | tr -d " \n"' 2>/dev/null)
+
+    check "LND REST - getinfo" \
+        "curl -sf --insecure -H 'Grpc-Metadata-macaroon: $macaroon' https://localhost:8080/v1/getinfo" \
+        "identity_pubkey"
 }
 
 # ==============================================================================

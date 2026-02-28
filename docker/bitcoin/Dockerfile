@@ -41,7 +41,7 @@ FROM rust:1.82-alpine3.20 AS electrs-builder
 
 RUN apk add --no-cache build-base clang-dev cmake git
 
-RUN git clone --depth 1 https://github.com/romanz/electrs.git /electrs-src
+RUN git clone --branch v0.10.6 --depth 1 https://github.com/romanz/electrs.git /electrs-src
 
 WORKDIR /electrs-src
 

@@ -135,6 +135,8 @@ services:
     ports:
       - "18332:18332"   # Regtest RPC
       - "18445:18444"   # Regtest P2P (host remapped to avoid conflict with bitcoin)
+      - "60601:60401"   # Electrs RPC (electrum protocol)
+      - "3020:3000"     # Electrs HTTP API
     volumes:
       - dogecoin-data:/data/dogecoin
     restart: unless-stopped
@@ -148,8 +150,10 @@ services:
       dockerfile: Dockerfile
     container_name: merry-litecoin
     ports:
-      - "19332:19332"   # Regtest RPC
+      - "19443:19443"   # Regtest RPC
       - "19444:19444"   # Regtest P2P
+      - "60501:60401"   # Electrs RPC (electrum protocol)
+      - "3010:3000"     # Electrs HTTP API
     volumes:
       - litecoin-data:/data/litecoin
     restart: unless-stopped

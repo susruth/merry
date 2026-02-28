@@ -36,7 +36,25 @@ RUN make -j$(nproc)
 RUN make install
 
 # ==============================================================================
-# Stage 2: Runtime image
+# Stage 2: Build Electrs (Litecoin) from source
+# ==============================================================================
+FROM rust:1.85-slim-bookworm AS electrs-builder
+
+RUN apt-get update && apt-get install -y \
+    clang \
+    cmake \
+    git \
+    librocksdb-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --branch new-index --depth 1 https://github.com/susruth/electrs.git /electrs-src
+
+WORKDIR /electrs-src
+
+RUN cargo build --release --features litecoin
+
+# ==============================================================================
+# Stage 3: Runtime image
 # ==============================================================================
 FROM alpine:3.20
 
@@ -53,24 +71,23 @@ RUN apk add --no-cache \
 COPY --from=litecoin-builder /opt/litecoin/bin/litecoind /usr/local/bin/
 COPY --from=litecoin-builder /opt/litecoin/bin/litecoin-cli /usr/local/bin/
 
-# Create data directory
-RUN mkdir -p /data/litecoin
+# Copy Electrs binary
+COPY --from=electrs-builder /electrs-src/target/release/electrs /usr/local/bin/
+
+# Create data directories
+RUN mkdir -p /data/litecoin /data/electrs
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Regtest RPC
-EXPOSE 19332
+EXPOSE 19443
 # Regtest P2P
 EXPOSE 19444
+# Electrs RPC (electrum protocol)
+EXPOSE 60401
+# Electrs HTTP API
+EXPOSE 3000
 
-ENTRYPOINT ["litecoind", \
-    "-regtest", \
-    "-server", \
-    "-txindex", \
-    "-datadir=/data/litecoin", \
-    "-rpcuser=user", \
-    "-rpcpassword=password", \
-    "-rpcallowip=0.0.0.0/0", \
-    "-rpcbind=0.0.0.0", \
-    "-zmqpubrawblock=tcp://0.0.0.0:28332", \
-    "-zmqpubrawtx=tcp://0.0.0.0:28333", \
-    "-fallbackfee=0.00001", \
-    "-printtoconsole"]
+ENTRYPOINT ["/entrypoint.sh"]
