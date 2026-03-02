@@ -41,6 +41,9 @@ else
     echo "Chain already has $BLOCK_COUNT blocks, skipping initial generation."
 fi
 
+echo "Starting nginx (Esplora frontend)..."
+nginx
+
 echo "Starting electrs for Litecoin..."
 export RUST_LOG=INFO
 exec electrs \

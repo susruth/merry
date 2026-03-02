@@ -1,25 +1,25 @@
 # ==============================================================================
-# Stage 1: Build zcashd v6.1.0 from source
+# Stage 1: Build zcashd v6.1.0 from source (needs glibc for Rust toolchain)
 # ==============================================================================
-FROM alpine:3.20 AS zcash-builder
+FROM debian:bookworm-slim AS zcash-builder
 
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     autoconf \
     automake \
-    build-base \
+    bsdmainutils \
+    build-essential \
     cmake \
-    coreutils \
     curl \
     git \
     libtool \
-    linux-headers \
     m4 \
     ncurses-dev \
-    pkgconf \
+    pkg-config \
     python3 \
-    py3-zmq \
+    python3-zmq \
     unzip \
-    zlib-dev
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --branch v6.1.0 --depth 1 https://github.com/zcash/zcash.git /zcash-src
 
@@ -30,13 +30,13 @@ RUN ./zcutil/build.sh -j$(nproc)
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM alpine:3.20
+FROM debian:bookworm-slim
 
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
+    bash \
     curl \
-    libgcc \
-    libgomp \
-    libstdc++
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy zcashd binaries
 COPY --from=zcash-builder /zcash-src/src/zcashd /usr/local/bin/

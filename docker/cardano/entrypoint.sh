@@ -68,7 +68,7 @@ BYRON_EOF
     # -------------------------------------------------------------------
     cat > "${CONFIG_DIR}/shelley-template.json" <<SHELLEY_EOF
 {
-  "activeSlotsCoeff": 0.05,
+  "activeSlotsCoeff": 0.1,
   "protocolParams": {
     "protocolVersion": { "minor": 0, "major": 8 },
     "decentralisationParam": 0,
@@ -94,12 +94,12 @@ BYRON_EOF
   "initialFunds": {},
   "maxLovelaceSupply": 45000000000000000,
   "networkMagic": ${NETWORK_MAGIC},
-  "epochLength": 500,
+  "epochLength": 100,
   "systemStart": "1970-01-01T00:00:00Z",
   "slotsPerKESPeriod": 129600,
   "slotLength": 0.2,
   "maxKESEvolutions": 62,
-  "securityParam": 10
+  "securityParam": 2
 }
 SHELLEY_EOF
 
@@ -188,12 +188,12 @@ CONWAY_EOF
   "LastKnownBlockVersion-Minor": 1,
   "MaxKnownMajorProtocolVersion": 2,
   "PBftSignatureThreshold": 1.1,
-  "TestShelleyHardForkAtEpoch": 0,
-  "TestAllegraHardForkAtEpoch": 0,
-  "TestMaryHardForkAtEpoch": 0,
-  "TestAlonzoHardForkAtEpoch": 0,
-  "TestBabbageHardForkAtEpoch": 0,
-  "TestConwayHardForkAtEpoch": 0,
+  "TestShelleyHardForkAtEpoch": 1,
+  "TestAllegraHardForkAtEpoch": 1,
+  "TestMaryHardForkAtEpoch": 1,
+  "TestAlonzoHardForkAtEpoch": 1,
+  "TestBabbageHardForkAtEpoch": 1,
+  "TestConwayHardForkAtEpoch": 1,
   "ExperimentalHardForksEnabled": true,
   "ExperimentalProtocolsEnabled": true,
   "EnableP2P": false,
@@ -217,7 +217,6 @@ CONWAY_EOF
   "options": {
     "mapBackends": {},
     "mapSubtrace": {
-      "#ekgview": { "contents": [[ [{"contents":"cardano.epoch-validation.benchmark","tag":"Contains"},{"contents":".teleport","tag":"Contains"}],[{"tag":"StartMeasure"},{"contents":"","tag":"StopMeasure"}]],"tag":"TeeTrace" },
       "benchmark": { "contents": ["GhcRtsStats","MonotonicClock"],"tag":"ObservableTraceSelf" },
       "#messagecounters.aggregation": { "contents":"","tag":"NoTrace" },
       "#messagecounters.switchboard": { "contents":"","tag":"NoTrace" },
@@ -245,13 +244,16 @@ CONFIG_EOF
         --supply 30000000000000000 \
         --testnet-magic "${NETWORK_MAGIC}" \
         --slot-length 1000 \
-        --slot-coefficient 5/100 \
-        --security-param 10 \
+        --slot-coefficient 1/10 \
+        --security-param 2 \
         --byron-template "${CONFIG_DIR}/byron-template.json" \
         --shelley-template "${CONFIG_DIR}/shelley-template.json" \
         --alonzo-template "${CONFIG_DIR}/alonzo-template.json" \
-        --conway-template "${CONFIG_DIR}/conway-template.json" \
-        --node-config-template "${CONFIG_DIR}/config-template.json"
+        --conway-template "${CONFIG_DIR}/conway-template.json"
+
+    # Copy the config template as config.json (not passed to create-cardano
+    # because its YAML parser chokes on the nested EKG tracing arrays)
+    cp "${CONFIG_DIR}/config-template.json" "${CONFIG_DIR}/config.json"
 
     # -------------------------------------------------------------------
     # 7. Patch the generated configuration with the actual start time and
@@ -259,10 +261,6 @@ CONFIG_EOF
     #    create-cardano outputs "node-config.json" from the template; we
     #    rename it to "config.json" for consistency.
     # -------------------------------------------------------------------
-    if [ -f "${CONFIG_DIR}/node-config.json" ] && [ ! -f "${CONFIG_DIR}/config.json" ]; then
-        mv "${CONFIG_DIR}/node-config.json" "${CONFIG_DIR}/config.json"
-    fi
-
     # Update systemStart in shelley-genesis.json
     jq --arg t "${START_TIME}" '.systemStart = $t' \
         "${CONFIG_DIR}/shelley-genesis.json" > "${CONFIG_DIR}/shelley-genesis.json.tmp" \
@@ -312,11 +310,19 @@ fi
 # Find the delegation certificate and signing key for block production.
 # These are created by create-cardano in the genesis-dir.
 # ---------------------------------------------------------------------------
-BYRON_DELEG_CERT=$(find "${CONFIG_DIR}" -path "*/delegate-keys/byron.000.cert.json" 2>/dev/null | head -1)
-BYRON_SIGNING_KEY=$(find "${CONFIG_DIR}" -path "*/delegate-keys/byron.000.key" 2>/dev/null | head -1)
-SHELLEY_KES_KEY=$(find "${CONFIG_DIR}" -path "*/delegate-keys/shelley.000.kes.skey" 2>/dev/null | head -1)
-SHELLEY_VRF_KEY=$(find "${CONFIG_DIR}" -path "*/delegate-keys/shelley.000.vrf.skey" 2>/dev/null | head -1)
-SHELLEY_OPCERT=$(find "${CONFIG_DIR}" -path "*/delegate-keys/shelley.000.opcert.json" 2>/dev/null | head -1)
+DELEG_DIR="${CONFIG_DIR}/delegate-keys"
+BYRON_DELEG_CERT="${DELEG_DIR}/byron.000.cert.json"
+BYRON_SIGNING_KEY="${DELEG_DIR}/byron.000.key"
+SHELLEY_KES_KEY="${DELEG_DIR}/shelley.000.kes.skey"
+SHELLEY_VRF_KEY="${DELEG_DIR}/shelley.000.vrf.skey"
+SHELLEY_OPCERT="${DELEG_DIR}/shelley.000.opcert.json"
+
+# Clear variables if files don't exist
+[ -f "${BYRON_DELEG_CERT}" ] || BYRON_DELEG_CERT=""
+[ -f "${BYRON_SIGNING_KEY}" ] || BYRON_SIGNING_KEY=""
+[ -f "${SHELLEY_KES_KEY}" ] || SHELLEY_KES_KEY=""
+[ -f "${SHELLEY_VRF_KEY}" ] || SHELLEY_VRF_KEY=""
+[ -f "${SHELLEY_OPCERT}" ] || SHELLEY_OPCERT=""
 
 # Build the block-production flags
 DELEGATION_FLAGS=""

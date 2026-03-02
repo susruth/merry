@@ -1,5 +1,24 @@
 services:
   # ============================================================
+  # Traefik Reverse Proxy
+  # ============================================================
+  traefik:
+    image: traefik:v3.2
+    container_name: merry-traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"        # HTTP
+      - "8081:8080"    # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  # ============================================================
   # Bitcoin Core + Electrs Indexer (regtest)
   # ============================================================
   bitcoin:
@@ -154,6 +173,26 @@ services:
       - "19444:19444"   # Regtest P2P
       - "60501:60401"   # Electrs RPC (electrum protocol)
       - "3010:3000"     # Electrs HTTP API
+      - "5010:5000"     # Esplora Explorer
+    labels:
+      - "traefik.enable=true"
+      # Esplora Explorer UI
+      - "traefik.http.routers.ltc-explorer.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.ltc-explorer.priority=1"
+      - "traefik.http.routers.ltc-explorer.entrypoints=web"
+      - "traefik.http.services.ltc-explorer.loadbalancer.server.port=5000"
+      # Electrs HTTP API
+      - "traefik.http.routers.ltc-api.rule=PathPrefix(`/api`)"
+      - "traefik.http.routers.ltc-api.priority=2"
+      - "traefik.http.routers.ltc-api.entrypoints=web"
+      - "traefik.http.services.ltc-api.loadbalancer.server.port=5000"
+      # Litecoin RPC
+      - "traefik.http.routers.ltc-rpc.rule=PathPrefix(`/rpc`)"
+      - "traefik.http.routers.ltc-rpc.priority=2"
+      - "traefik.http.routers.ltc-rpc.entrypoints=web"
+      - "traefik.http.middlewares.ltc-rpc-strip.stripprefix.prefixes=/rpc"
+      - "traefik.http.routers.ltc-rpc.middlewares=ltc-rpc-strip"
+      - "traefik.http.services.ltc-rpc.loadbalancer.server.port=19443"
     volumes:
       - litecoin-data:/data/litecoin
     restart: unless-stopped
@@ -170,7 +209,7 @@ services:
       - "18232:18232"   # Regtest RPC
       - "18233:18233"   # Regtest P2P
     volumes:
-      - zcash-data:/root/.zcash
+      - zcash-data:/data
     restart: unless-stopped
 
   # ============================================================

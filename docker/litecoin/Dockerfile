@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     build-base \
     coreutils \
     db-dev \
+    fmt-dev \
     git \
     libevent-dev \
     libtool \
@@ -24,7 +25,7 @@ WORKDIR /litecoin-src
 
 RUN ./autogen.sh
 
-RUN ./configure \
+RUN CXXFLAGS="-fpermissive" ./configure \
     --without-gui \
     --disable-tests \
     --disable-bench \
@@ -32,7 +33,7 @@ RUN ./configure \
     --with-zmq \
     --prefix=/opt/litecoin
 
-RUN make -j$(nproc)
+RUN make -j$(nproc) CXXFLAGS="-g -O2 -fpermissive"
 RUN make install
 
 # ==============================================================================
@@ -54,17 +55,35 @@ WORKDIR /electrs-src
 RUN cargo build --release --features litecoin
 
 # ==============================================================================
-# Stage 3: Runtime image
+# Stage 3: Build Esplora frontend
+# ==============================================================================
+FROM node:20-alpine AS esplora-builder
+
+RUN apk add --no-cache bash git
+
+RUN git clone --depth 1 https://github.com/susruth/esplora.git /esplora-src
+
+WORKDIR /esplora-src
+
+SHELL ["/bin/bash", "-c"]
+RUN npm install
+RUN NATIVE_ASSET_LABEL=LTC SITE_TITLE="Litecoin Explorer" npm run dist
+
+# ==============================================================================
+# Stage 4: Runtime image
 # ==============================================================================
 FROM alpine:3.20
 
 RUN apk add --no-cache \
+    bash \
     boost-filesystem \
     boost-thread \
     db \
+    fmt \
     libevent \
     libssl3 \
     libstdc++ \
+    nginx \
     zeromq
 
 # Copy Litecoin Core binaries
@@ -73,6 +92,27 @@ COPY --from=litecoin-builder /opt/litecoin/bin/litecoin-cli /usr/local/bin/
 
 # Copy Electrs binary
 COPY --from=electrs-builder /electrs-src/target/release/electrs /usr/local/bin/
+
+# Copy Esplora frontend
+COPY --from=esplora-builder /esplora-src/dist /srv/esplora
+
+# Nginx config: serve esplora frontend and proxy /api to electrs
+RUN mkdir -p /run/nginx && cat > /etc/nginx/http.d/default.conf <<'NGINX'
+server {
+    listen 5000 default_server;
+
+    root /srv/esplora;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/;
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}
+NGINX
 
 # Create data directories
 RUN mkdir -p /data/litecoin /data/electrs
@@ -89,5 +129,7 @@ EXPOSE 19444
 EXPOSE 60401
 # Electrs HTTP API
 EXPOSE 3000
+# Esplora Explorer
+EXPOSE 5000
 
 ENTRYPOINT ["/entrypoint.sh"]
